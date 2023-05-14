@@ -32,7 +32,12 @@ describe('ref test', () => {
   });
 
   it('get test', () => {
-    const t = Test.init({b: 1});
+    type TestObj = {
+      a: number | undefined;
+      b: number;
+      c: number | undefined;
+    }
+    const t = Test.init<TestObj>({ b: 1 });
     expect(t.get('a')).toBe(undefined);
     expect(t.get('b')).toBe(1);
     expect(t.get('c')).toBe(undefined);

@@ -1,10 +1,10 @@
-export interface IRef {
-  get(key: string): any;
-  set(key: string, value: any): any;
+export interface IRef<T extends { [key: string]: any }> {
+  get<K extends keyof T>(key: K): T[K];
+  set<K extends keyof T>(key: K, value: T[K]): IRef<T>;
 }
 
 export interface RefManager {
-  init(obj: any): IRef;
+  init<T extends { [key: string]: any }>(obj: Partial<T>): IRef<T>;
   release(): void;
 }
 
@@ -12,9 +12,13 @@ export function createRefManager(keys: string[]): RefManager {
   const mapTree = new Map();
   const lastIndex = keys.length - 1;
 
-  function findRef(ref: Ref, changedKey: string, changedValue: any): Ref | undefined;
-  function findRef(ref: {[key: string]: any}): Ref | undefined;
-  function findRef(ref: Ref | {[key: string]: any}, changedKey?: string, changedValue?: any): Ref | undefined {
+  function findRef<T extends { [key: string]: any }, K extends keyof T> (
+    ref: Ref<T>, changedKey: K, changedValue: T[K],
+  ): Ref<T> | undefined;
+  function findRef<T extends { [key: string]: any }> (ref: Ref<T> | Partial<T>): Ref<T> | undefined;
+  function findRef<T extends { [key: string]: any }, K extends keyof T> (
+    ref: Ref<T> | Partial<T>, changedKey?: K, changedValue?: T[K]
+  ): Ref<T> | undefined {
     let map = mapTree;
     for (let i = 0; i <= lastIndex; i++) {
       const key = keys[i];
@@ -29,12 +33,16 @@ export function createRefManager(keys: string[]): RefManager {
     return map;
   }
 
-  function createRef(ref: Ref, changedKey: string, changedValue: any): Ref;
-  function createRef(ref: {[key: string]: any}): Ref;
-  function createRef(ref: Ref | {[key: string]: any}, changedKey?: string, changedValue?: any): Ref {
+  function createRef<T extends { [key: string]: any }, K extends keyof T> (
+    ref: Ref<T>, changedKey: string, changedValue: any
+  ): Ref<T>;
+  function createRef<T extends { [key: string]: any }>(ref: {[key: string]: any}): Ref<T>;
+  function createRef<T extends { [key: string]: any }, K extends keyof T> (
+    ref: Ref<T> | Partial<T>, changedKey?: K, changedValue?: T[K]
+  ): Ref<T> | undefined {
     let map = mapTree;
     const cfg = {};
-    const newRef = new Ref(cfg);
+    const newRef = new Ref<T>(cfg as any);
     for (let i = 0; i <= lastIndex; i++) {
       const key = keys[i];
       const value = key === changedKey ? changedValue : (ref instanceof Ref ? ref.get(key) : ref[key]);
@@ -50,25 +58,25 @@ export function createRefManager(keys: string[]): RefManager {
     return newRef;
   }
 
-  class Ref implements IRef{
+  class Ref<T extends { [key: string]: any }> implements IRef<T> {
 
-    constructor(private cfg) {}
+    constructor(private cfg: T) {}
 
-    get(key: string) {
+    get<K extends keyof T>(key: K): T[K] {
       return this.cfg[key];
     }
 
-    set(key: string, value): Ref {
+    set<K extends keyof T>(key: K, value: T[K]): Ref<T> {
       const refObj = findRef(this, key, value);
       if (refObj) {
         return refObj;
       }
-      return createRef(this, key, value);
+      return createRef(this, key as string, value);
     }
   }
 
   return {
-    init(obj: any) {
+    init<T extends { [key: string]: any }>(obj: Partial<T>) {
       const refObj = findRef(obj);
       if (refObj) {
         return refObj;
